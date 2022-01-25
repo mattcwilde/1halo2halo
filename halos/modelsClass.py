@@ -5,18 +5,38 @@ from numpy.core.fromnumeric import mean
 
 class Model:
     def __init__(self, data, theta) -> None:
-        self.data = None
-        self.theta = None
+        self.data = data
+        self.theta = theta
         # self.m0 = None
+        (
+            self.z,
+            self.rho_com,
+            self.mass,
+            self.hits,
+            self.misses,
+            self.Hz,
+            self.dv,
+            self.cgm_data_doanly,
+            self.do_anly,
+        ) = self.data
+        (
+            self.m0,
+            self.r0,
+            self.gamma,
+            self.beta,
+            self.dndz_index,
+            self.dndz_coeff,
+        ) = self.theta
 
-        # z, rho_com, mass, hits, misses, Hz, dv, cgm_data_doanly, do_anly = self.data
+    def r0_mass(self):
+        r0_mass = self.r0 * (self.mass / self.m0) ** (self.beta)
+        return r0_mass
 
-    def chi_perp(self, theta, data):
-        m0, r0, gamma, beta, dndz_index, dndz_coeff = theta
-        z, rho_com, mass, hits, misses, Hz, dv, cgm_data_doanly, do_anly = data
+    def chi_perp(self):
 
-        r0_mass = r0 * (mass / m0) ** (beta)
-        chi_i = c2.chi_perp_analytic(r0_mass, gamma, rho_com, z, Hz, dv)
+        chi_i = c2.chi_perp_analytic(
+            self.r0_mass(), self.gamma, self.rho_com, self.z, self.Hz, self.dv
+        )
         return chi_i
 
     def mean_dNdz(self, theta, data, vmax=500.0):
