@@ -34,9 +34,7 @@ def get_combined_dataset(cgmsqfile=None, casbahfile=None):
 
     # casbah
     if casbahfile is None:
-        casbahfile = (
-            "/Users/mwilde/Dropbox/Research/data/CASBaH/h1_galaxies_20Mpc_500kms_*.fits"
-        )
+        casbahfile = "/Users/mwilde/Dropbox/CASBaH/data/h1_galaxies_20Mpc_500kms_*.fits"
     survey_files = glob.glob(casbahfile)
     cas_tab_list = []
     for cas_tab_file in survey_files:
