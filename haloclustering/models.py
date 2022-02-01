@@ -30,7 +30,7 @@ class Model:
             self.do_anly,
         ) = self.data
 
-        self.r0_rvir = self.rvir
+        self.r0_rvir = self.rvir.data / 1000.0  # convert to Mpc ~ rho_com
 
     def set_params(self, params):
         """set the params specific to each model.
@@ -48,6 +48,18 @@ class Model:
         self.dndz_coeff = dndz_coeff
 
     def chi_perp(self, r0, gamma):
+        """compute the integral of the clustering function along the line of site. 
+        Use the analytic solution. works for either a single valued r0, gamma or broadcasts
+        correctly with r0 ~ Rvir of each galaxy. 
+
+        Args:
+            r0 (float, ndarray): scaling factor for the clustering power law. can be a float or an array
+                with length matching that of the number of galaxies.
+            gamma (float): clustering power law index. 
+
+        Returns:
+            ndarray: chi_perp array with length equal to number of galaxies.
+        """
         chi_i = c2.chi_perp_analytic(r0, gamma, self.rho_com, self.z, self.Hz, self.dv)
         return chi_i
 

@@ -11,10 +11,10 @@ def max_likelihood_est(model, initial, bounds):
     return soln
 
 
-def posterior_sampler(soln, log_probability, args, nsteps=10000):
+def posterior_sampler(soln, log_probability, nsteps=10000):
     pos = soln.x + 1e-4 * np.random.randn(2 * soln.x.shape[0], soln.x.shape[0])
     nwalkers, ndim = pos.shape
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=args,)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability)
 
     sampler.run_mcmc(pos, nsteps, progress=True)
     return sampler
