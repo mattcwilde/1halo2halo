@@ -176,3 +176,72 @@ class Model:
         logprob = lp + self.log_likelihood()
         return logprob
 
+
+class Model2h(Model):
+    def set_params(self, params):
+        """set the params specific to each model.
+
+        Args:
+            params (array): array of parameter values
+        """
+        r0_2, gamma_2, dndz_index, dndz_coeff = params
+        # 1 halo and 2 halo parameters theta
+        # r0_1halo is going to be the rvir
+        self.r0_2 = r0_2
+        self.gamma_2 = gamma_2
+        self.dndz_index = dndz_index
+        self.dndz_coeff = dndz_coeff
+
+    def log_likelihood(self):
+
+        prob_hit = self.phit_2halo()
+
+        # artifically inflating the variance.
+        prob_hit = np.clip(prob_hit, 0.01, 0.99)
+        prob_miss = 1 - prob_hit
+        log_prob_hits = np.log(prob_hit[self.hits])
+        log_prob_miss = np.log(prob_miss[self.misses])
+
+        sum_log_prob_miss = np.sum(log_prob_miss)
+        sum_log_prob_hits = np.sum(log_prob_hits)
+
+        llikelihood = sum_log_prob_hits + sum_log_prob_miss
+        return llikelihood
+
+    def log_prior(self):
+        """the Bayesian prior. Will change with each model based on which params are 
+        important to the model. 
+
+        Returns:
+            ln_prior (float): natural log of the prior
+        """
+        r0_2 = self.r0_2
+        gamma_2 = self.gamma_2
+        dndz_index = self.dndz_index
+        dndz_coeff = self.dndz_coeff
+
+        # flat prior on r0, gaussian prior on gamma around 1.6
+
+        if (r0_2 < 0) or (r0_2 > 10):
+            return -np.inf
+        if (gamma_2 < 0) or (gamma_2 > 10):
+            return -np.inf
+        if (
+            (dndz_index < -3)
+            or (dndz_index > 3)
+            or (dndz_coeff < 0)
+            or (dndz_coeff > 40)
+        ):
+            return -np.inf
+
+        ln_prior = -0.5 * ((gamma_2 - 1.7) ** 2 / (0.1) ** 2)  # tejos 2014
+        ln_prior += -0.5 * ((r0_2 - 3.8) ** 2 / (0.3) ** 2)  # tejos 2014
+        # ln_prior += -0.5*((beta - 0.5)**2/(sig)**2)
+        ln_prior += -0.5 * ((dndz_index - 0.97) ** 2 / (0.87) ** 2)  # kim+
+        ln_prior += -0.5 * (
+            (np.log(dndz_coeff) - np.log(10) * 1.25) ** 2 / (np.log(10) * 0.11) ** 2
+        ) - np.log(
+            dndz_coeff
+        )  # kim+
+
+        return ln_prior
