@@ -50,7 +50,7 @@ class Model:
         self.dndz_index = dndz_index
         self.dndz_coeff = dndz_coeff
 
-    def r0(self):
+    def r0func(self):
         return self.r0_rvir * self.r0_coeff
 
     def chi_perp(self, r0, gamma):
@@ -87,7 +87,7 @@ class Model:
         return prob_hit
 
     def phit_1halo(self):
-        chi_perp1 = self.chi_perp(self.r0(), self.gamma)
+        chi_perp1 = self.chi_perp(self.r0func(), self.gamma)
         prob_hit = self._calc_prob(chi_perp1)
         return prob_hit
 
@@ -97,7 +97,7 @@ class Model:
         return prob_hit
 
     def phit_sum(self):
-        chi_perp1 = self.chi_perp(self.r0(), self.gamma)
+        chi_perp1 = self.chi_perp(self.r0func(), self.gamma)
         chi_perp2 = self.chi_perp(self.r0_2, self.gamma_2)
         prob_hit = self._calc_prob(chi_perp1 + chi_perp2)
         return prob_hit
@@ -237,6 +237,111 @@ class Model2h(Model):
         ln_prior = -0.5 * ((gamma_2 - 1.7) ** 2 / (0.1) ** 2)  # tejos 2014
         ln_prior += -0.5 * ((r0_2 - 3.8) ** 2 / (0.3) ** 2)  # tejos 2014
         # ln_prior += -0.5*((beta - 0.5)**2/(sig)**2)
+        ln_prior += -0.5 * ((dndz_index - 0.97) ** 2 / (0.87) ** 2)  # kim+
+        ln_prior += -0.5 * (
+            (np.log(dndz_coeff) - np.log(10) * 1.25) ** 2 / (np.log(10) * 0.11) ** 2
+        ) - np.log(
+            dndz_coeff
+        )  # kim+
+
+        return ln_prior
+
+
+class ModelBetaMass(Model):
+    def __init__(self, data, m0=10 ** 10.5) -> None:
+        super().__init__(data)
+
+        self.m0 = m0
+
+    def set_params(self, params):
+        """set the params specific to each model.
+
+        Args:
+            params (array): array of parameter values
+        """
+
+        r0, gamma, r0_2, gamma_2, beta1, beta2, beta2h, dndz_index, dndz_coeff = params
+
+        # 1 halo and 2 halo parameters theta
+        # r0_1halo is going to be the rvir
+        self.r0 = r0
+        self.gamma = gamma
+        self.r0_2 = r0_2
+        self.gamma_2 = gamma_2
+        self.dndz_index = dndz_index
+        self.dndz_coeff = dndz_coeff
+        self.beta1h = np.array([beta1, beta2])
+        self.beta2h = beta2h
+
+    def r0func_1h(self):
+        massidx = np.digitize(self.mass, [0, self.m0])
+        r0_mass = self.r0 * (self.mass / self.m0) ** (self.beta1h[massidx])
+        return r0_mass
+
+    def r0func_2h(self):
+        r0_mass = self.r0_2 * (self.mass / self.m0) ** (self.beta2h)
+        return r0_mass
+
+    def phit_1halo(self):
+        chi_perp1 = self.chi_perp(self.r0func_1h(), self.gamma)
+        prob_hit = self._calc_prob(chi_perp1)
+        return prob_hit
+
+    def phit_2halo(self):
+        chi_perp2 = self.chi_perp(self.r0func_2h(), self.gamma_2)
+        prob_hit = self._calc_prob(chi_perp2)
+        return prob_hit
+
+    def phit_sum(self):
+        chi_perp1 = self.chi_perp(self.r0func_1h(), self.gamma)
+        chi_perp2 = self.chi_perp(self.r0func_1h(), self.gamma_2)
+        prob_hit = self._calc_prob(chi_perp1 + chi_perp2)
+        return prob_hit
+
+    def log_prior(self):
+        r0 = self.r0
+        r0_2 = self.r0_2
+        gamma = self.gamma
+        gamma_2 = self.gamma_2
+        # beta = self.beta1h
+        beta2h = self.beta2h
+        beta1, beta2 = self.beta1h
+
+        dndz_index = self.dndz_index
+        dndz_coeff = self.dndz_coeff
+
+        # flat prior on r0, gaussian prior on gamma around 1.6
+        if (r0 < 0) or (r0 > 10) or (r0_2 < 0) or (r0_2 > 10):
+            return -np.inf
+        if (gamma < 2) or (gamma > 10) or (gamma_2 < 0) or (gamma_2 > 10):
+            return -np.inf
+        if (
+            (beta1 < -3)
+            or (beta1 > 10)
+            or (beta2 < -3)
+            or (beta2 > 10)
+            or (beta2h < -3)
+            or (beta2h > 10)
+        ):
+            return -np.inf
+        if (
+            (dndz_index < -3)
+            or (dndz_index > 3)
+            or (dndz_coeff < 0)
+            or (dndz_coeff > 40)
+        ):
+            return -np.inf
+
+        sig = 1.0
+        ln_prior = -0.5 * ((gamma - 6) ** 2 / (sig) ** 2)
+        ln_prior = -0.5 * ((gamma_2 - 1.7) ** 2 / (0.1) ** 2)  # tejos 2014
+        ln_prior += -0.5 * ((r0 - 1) ** 2 / (sig) ** 2)
+        ln_prior += -0.5 * ((r0_2 - 3.8) ** 2 / (0.3) ** 2)  # tejos 2014
+        # ln_prior += -0.5*((beta - 0.5)**2/(sig)**2)
+
+        ln_prior += -0.5 * ((beta1 - 1 / 8) ** 2 / (sig) ** 2)
+        ln_prior += -0.5 * ((beta2 - 0.8) ** 2 / (sig) ** 2)
+        ln_prior += -0.5 * ((beta2h - 1 / 8) ** 2 / (sig) ** 2)
         ln_prior += -0.5 * ((dndz_index - 0.97) ** 2 / (0.87) ** 2)  # kim+
         ln_prior += -0.5 * (
             (np.log(dndz_coeff) - np.log(10) * 1.25) ** 2 / (np.log(10) * 0.11) ** 2

@@ -5,7 +5,7 @@ from astropy.table import Table, vstack
 from cgmsquared import load_cgmsquared
 
 
-def get_combined_dataset(cgmsqfile=None, casbahfile=None):
+def get_combined_dataset(cgmsqfile=None, casbahfile=None, **kwargs):
     """format for returned data is (
         z,
         rho_com,
@@ -48,6 +48,6 @@ def get_combined_dataset(cgmsqfile=None, casbahfile=None):
     cgm_data_cas = vstack(cas_tab_list)
 
     # format of data is
-    data = c2.combine_cgm2_casbah_cluster_data(cgm, cgm_data_cas)
+    data = c2.combine_cgm2_casbah_cluster_data(cgm, cgm_data_cas, **kwargs)
     return data
 
