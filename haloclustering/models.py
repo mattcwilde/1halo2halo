@@ -272,9 +272,13 @@ class ModelBetaMass(Model):
         self.dndz_coeff = dndz_coeff
         self.beta1h = np.array([beta1, beta2])
         self.beta2h = beta2h
+        self.params = params
+
+    def r0func(self):
+        print("this isn't defined in this model")
 
     def r0func_1h(self):
-        massidx = np.digitize(self.mass, [0, self.m0])
+        massidx = np.digitize(self.mass, [0, self.m0]) - 1
         r0_mass = self.r0 * (self.mass / self.m0) ** (self.beta1h[massidx])
         return r0_mass
 
@@ -294,26 +298,27 @@ class ModelBetaMass(Model):
 
     def phit_sum(self):
         chi_perp1 = self.chi_perp(self.r0func_1h(), self.gamma)
-        chi_perp2 = self.chi_perp(self.r0func_1h(), self.gamma_2)
+        chi_perp2 = self.chi_perp(self.r0func_2h(), self.gamma_2)
         prob_hit = self._calc_prob(chi_perp1 + chi_perp2)
         return prob_hit
 
     def log_prior(self):
-        r0 = self.r0
-        r0_2 = self.r0_2
-        gamma = self.gamma
-        gamma_2 = self.gamma_2
-        # beta = self.beta1h
-        beta2h = self.beta2h
-        beta1, beta2 = self.beta1h
-
-        dndz_index = self.dndz_index
-        dndz_coeff = self.dndz_coeff
+        (
+            r0,
+            gamma,
+            r0_2,
+            gamma_2,
+            beta1,
+            beta2,
+            beta2h,
+            dndz_index,
+            dndz_coeff,
+        ) = self.params
 
         # flat prior on r0, gaussian prior on gamma around 1.6
         if (r0 < 0) or (r0 > 10) or (r0_2 < 0) or (r0_2 > 10):
             return -np.inf
-        if (gamma < 2) or (gamma > 10) or (gamma_2 < 0) or (gamma_2 > 10):
+        if (gamma < 0) or (gamma > 10) or (gamma_2 < 0) or (gamma_2 > 10):
             return -np.inf
         if (
             (beta1 < -3)
@@ -333,7 +338,8 @@ class ModelBetaMass(Model):
             return -np.inf
 
         sig = 1.0
-        ln_prior = -0.5 * ((gamma - 6) ** 2 / (sig) ** 2)
+        # TODO: check other priors for gamma 1-halo
+        # ln_prior = -0.5 * ((gamma - 2) ** 2 / (sig) ** 2)
         ln_prior = -0.5 * ((gamma_2 - 1.7) ** 2 / (0.1) ** 2)  # tejos 2014
         ln_prior += -0.5 * ((r0 - 1) ** 2 / (sig) ** 2)
         ln_prior += -0.5 * ((r0_2 - 3.8) ** 2 / (0.3) ** 2)  # tejos 2014
@@ -341,7 +347,7 @@ class ModelBetaMass(Model):
 
         ln_prior += -0.5 * ((beta1 - 1 / 8) ** 2 / (sig) ** 2)
         ln_prior += -0.5 * ((beta2 - 0.8) ** 2 / (sig) ** 2)
-        ln_prior += -0.5 * ((beta2h - 1 / 8) ** 2 / (sig) ** 2)
+        # ln_prior += -0.5 * ((beta2h - 1 / 8) ** 2 / (sig) ** 2)
         ln_prior += -0.5 * ((dndz_index - 0.97) ** 2 / (0.87) ** 2)  # kim+
         ln_prior += -0.5 * (
             (np.log(dndz_coeff) - np.log(10) * 1.25) ** 2 / (np.log(10) * 0.11) ** 2
