@@ -4,18 +4,10 @@ from cgmsquared import clustering as cgm2_cluster
 
 
 class Model:
-    """This model of the covering fraction/probability of hitting logNHI > 10**14 is based on
-    using r0 ~ Rvir. 
+    def __init__(self, data, m0=10 ** 10.5) -> None:
 
-    This one takes in data that should be an array of values/arrays and optionally an m0. 
-
-    Add more here eventually. 
-
-    TODO: make a generic model for the regular case. 
-    """
-
-    def __init__(self, data) -> None:
         self.data = data
+        self.m0 = m0
         # unpack the data variables
         (
             self.z,
@@ -40,18 +32,16 @@ class Model:
         Args:
             params (array): array of parameter values
         """
-        r0_coeff, gamma, r0_2, gamma_2, dndz_index, dndz_coeff = params
-        # 1 halo and 2 halo parameters theta
-        # r0_1halo is going to be the rvir
-        self.r0_coeff = r0_coeff
+        r0, gamma, r0_2, gamma_2, beta, beta2h, dndz_index, dndz_coeff = params
+        self.r0 = r0
         self.gamma = gamma
         self.r0_2 = r0_2
         self.gamma_2 = gamma_2
+        self.beta = beta
+        self.beta2h = beta2h
         self.dndz_index = dndz_index
         self.dndz_coeff = dndz_coeff
-
-    def r0func(self):
-        return self.r0_rvir * self.r0_coeff
+        self.params = params
 
     def chi_perp(self, r0, gamma):
         """compute the integral of the clustering function along the line of site. 
@@ -86,21 +76,67 @@ class Model:
         prob_hit = 1 - prob_miss
         return prob_hit
 
+    def r0func_1h(self):
+        r0_mass = self.r0 * (self.mass / self.m0) ** (self.beta)
+        return r0_mass
+
+    def r0func_2h(self):
+        r0_mass = self.r0_2 * (self.mass / self.m0) ** (self.beta2h)
+        return r0_mass
+
     def phit_1halo(self):
-        chi_perp1 = self.chi_perp(self.r0func(), self.gamma)
+        chi_perp1 = self.chi_perp(self.r0func_1h(), self.gamma)
         prob_hit = self._calc_prob(chi_perp1)
         return prob_hit
 
     def phit_2halo(self):
-        chi_perp2 = self.chi_perp(self.r0_2, self.gamma_2)
+        chi_perp2 = self.chi_perp(self.r0func_2h(), self.gamma_2)
         prob_hit = self._calc_prob(chi_perp2)
         return prob_hit
 
     def phit_sum(self):
-        chi_perp1 = self.chi_perp(self.r0func(), self.gamma)
-        chi_perp2 = self.chi_perp(self.r0_2, self.gamma_2)
+        chi_perp1 = self.chi_perp(self.r0func_1h(), self.gamma)
+        chi_perp2 = self.chi_perp(self.r0func_2h(), self.gamma_2)
         prob_hit = self._calc_prob(chi_perp1 + chi_perp2)
         return prob_hit
+
+    def log_prior(self):
+        (r0, gamma, r0_2, gamma_2, beta, beta2h, dndz_index, dndz_coeff) = self.params
+
+        # flat prior on r0, gaussian prior on gamma around 1.6
+        if (r0 < 0) or (r0 > 10) or (r0_2 < 0) or (r0_2 > 10):
+            return -np.inf
+        if (gamma < 0) or (gamma > 10) or (gamma_2 < 0) or (gamma_2 > 10):
+            return -np.inf
+        if (beta < -3) or (beta > 10) or (beta2h < -3) or (beta2h > 10):
+            return -np.inf
+        if (
+            (dndz_index < -3)
+            or (dndz_index > 3)
+            or (dndz_coeff < 0)
+            or (dndz_coeff > 40)
+        ):
+            return -np.inf
+
+        sig = 1.0
+        # TODO: check other priors for gamma 1-halo
+        # ln_prior = -0.5 * ((gamma - 2) ** 2 / (sig) ** 2)
+        ln_prior = -0.5 * ((gamma_2 - 1.7) ** 2 / (0.1) ** 2)  # tejos 2014
+
+        # ln_prior += -0.5 * ((r0 - 1) ** 2 / (sig) ** 2)
+        ln_prior += -0.5 * ((r0_2 - 3.8) ** 2 / (0.3) ** 2)  # tejos 2014
+        # ln_prior += -0.5*((beta - 0.5)**2/(sig)**2)
+
+        ln_prior += -0.5 * ((beta - 1 / 8) ** 2 / (sig) ** 2)
+        ln_prior += -0.5 * ((beta2h - 1 / 8) ** 2 / (sig) ** 2)
+        ln_prior += -0.5 * ((dndz_index - 0.97) ** 2 / (0.87) ** 2)  # kim+
+        ln_prior += -0.5 * (
+            (np.log(dndz_coeff) - np.log(10) * 1.25) ** 2 / (np.log(10) * 0.11) ** 2
+        ) - np.log(
+            dndz_coeff
+        )  # kim+
+
+        return ln_prior
 
     def log_likelihood(self):
 
@@ -123,6 +159,65 @@ class Model:
             self.set_params(params)
         return -self.log_likelihood()
 
+    def log_probability(self, params=None):
+        if params is not None:
+            self.set_params(params)
+        lp = self.log_prior()
+
+        if not np.isfinite(lp):
+            return -np.inf
+        logprob = lp + self.log_likelihood()
+        return logprob
+
+
+class rvirModel(Model):
+    """This model of the covering fraction/probability of hitting logNHI > 10**14 is based on
+    using r0 ~ Rvir. 
+
+    This one takes in data that should be an array of values/arrays and optionally an m0. 
+
+    Add more here eventually. 
+
+    """
+
+    def __init__(self, data) -> None:
+        super().__init__(data)
+
+    def set_params(self, params):
+        """set the params specific to each model.
+
+        Args:
+            params (array): array of parameter values
+        """
+        r0_coeff, gamma, r0_2, gamma_2, dndz_index, dndz_coeff = params
+        # 1 halo and 2 halo parameters theta
+        # r0_1halo is going to be the rvir
+        self.r0_coeff = r0_coeff
+        self.gamma = gamma
+        self.r0_2 = r0_2
+        self.gamma_2 = gamma_2
+        self.dndz_index = dndz_index
+        self.dndz_coeff = dndz_coeff
+
+    def r0func(self):
+        return self.r0_rvir * self.r0_coeff
+
+    def phit_1halo(self):
+        chi_perp1 = self.chi_perp(self.r0func(), self.gamma)
+        prob_hit = self._calc_prob(chi_perp1)
+        return prob_hit
+
+    def phit_2halo(self):
+        chi_perp2 = self.chi_perp(self.r0_2, self.gamma_2)
+        prob_hit = self._calc_prob(chi_perp2)
+        return prob_hit
+
+    def phit_sum(self):
+        chi_perp1 = self.chi_perp(self.r0func(), self.gamma)
+        chi_perp2 = self.chi_perp(self.r0_2, self.gamma_2)
+        prob_hit = self._calc_prob(chi_perp1 + chi_perp2)
+        return prob_hit
+
     def log_prior(self):
         """the Bayesian prior. Will change with each model based on which params are 
         important to the model. 
@@ -142,7 +237,7 @@ class Model:
             return -np.inf
         if (r0_2 < 0) or (r0_2 > 10):
             return -np.inf
-        if (gamma < 2) or (gamma > 10) or (gamma_2 < 0) or (gamma_2 > 10):
+        if (gamma < 0) or (gamma > 10) or (gamma_2 < 0) or (gamma_2 > 10):
             return -np.inf
         if (
             (dndz_index < -3)
@@ -153,7 +248,7 @@ class Model:
             return -np.inf
 
         sig = 1.0
-        ln_prior = -0.5 * ((gamma - 6) ** 2 / (sig) ** 2)
+        # ln_prior = -0.5 * ((gamma - 6) ** 2 / (sig) ** 2)
         ln_prior = -0.5 * ((gamma_2 - 1.7) ** 2 / (0.1) ** 2)  # tejos 2014
         ln_prior += -0.5 * ((r0_2 - 3.8) ** 2 / (0.3) ** 2)  # tejos 2014
         # ln_prior += -0.5*((beta - 0.5)**2/(sig)**2)
@@ -165,16 +260,6 @@ class Model:
         )  # kim+
 
         return ln_prior
-
-    def log_probability(self, params=None):
-        if params is not None:
-            self.set_params(params)
-        lp = self.log_prior()
-
-        if not np.isfinite(lp):
-            return -np.inf
-        logprob = lp + self.log_likelihood()
-        return logprob
 
 
 class Model2h(Model):
@@ -345,8 +430,8 @@ class ModelBetaMass(Model):
         ln_prior += -0.5 * ((r0_2 - 3.8) ** 2 / (0.3) ** 2)  # tejos 2014
         # ln_prior += -0.5*((beta - 0.5)**2/(sig)**2)
 
-        ln_prior += -0.5 * ((beta1 - 1 / 8) ** 2 / (sig) ** 2)
-        ln_prior += -0.5 * ((beta2 - 0.8) ** 2 / (sig) ** 2)
+        # ln_prior += -0.5 * ((beta1 - 1 / 8) ** 2 / (sig) ** 2)
+        # ln_prior += -0.5 * ((beta2 - 0.8) ** 2 / (sig) ** 2)
         # ln_prior += -0.5 * ((beta2h - 1 / 8) ** 2 / (sig) ** 2)
         ln_prior += -0.5 * ((dndz_index - 0.97) ** 2 / (0.87) ** 2)  # kim+
         ln_prior += -0.5 * (
