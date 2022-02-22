@@ -87,17 +87,26 @@ class Model:
     def phit_1halo(self):
         chi_perp1 = self.chi_perp(self.r0func_1h(), self.gamma)
         prob_hit = self._calc_prob(chi_perp1)
+        # artifically inflating the variance.
+        # based on numerics
+        prob_hit = np.clip(prob_hit, 0.01, 0.99)
         return prob_hit
 
     def phit_2halo(self):
         chi_perp2 = self.chi_perp(self.r0func_2h(), self.gamma_2)
         prob_hit = self._calc_prob(chi_perp2)
+        # artifically inflating the variance.
+        # based on numerics
+        prob_hit = np.clip(prob_hit, 0.01, 0.99)
         return prob_hit
 
     def phit_sum(self):
         chi_perp1 = self.chi_perp(self.r0func_1h(), self.gamma)
         chi_perp2 = self.chi_perp(self.r0func_2h(), self.gamma_2)
         prob_hit = self._calc_prob(chi_perp1 + chi_perp2)
+        # artifically inflating the variance.
+        # based on numerics
+        prob_hit = np.clip(prob_hit, 0.01, 0.99)
         return prob_hit
 
     def log_prior(self):
@@ -106,7 +115,7 @@ class Model:
         # flat prior on r0, gaussian prior on gamma around 1.6
         if (r0 < 0) or (r0 > 10) or (r0_2 < 0) or (r0_2 > 10):
             return -np.inf
-        if (gamma < 0) or (gamma > 10) or (gamma_2 < 0) or (gamma_2 > 10):
+        if (gamma < 1) or (gamma > 10) or (gamma_2 < 1) or (gamma_2 > 10):
             return -np.inf
         if (beta < -3) or (beta > 10) or (beta2h < -3) or (beta2h > 10):
             return -np.inf
@@ -127,8 +136,8 @@ class Model:
         ln_prior += -0.5 * ((r0_2 - 3.8) ** 2 / (0.3) ** 2)  # tejos 2014
         # ln_prior += -0.5*((beta - 0.5)**2/(sig)**2)
 
-        ln_prior += -0.5 * ((beta - 1 / 8) ** 2 / (sig) ** 2)
-        ln_prior += -0.5 * ((beta2h - 1 / 8) ** 2 / (sig) ** 2)
+        ln_prior += -0.5 * ((beta - 1 / 8) ** 2 / (sig) ** 2)  # mirror rvir slope
+        ln_prior += -0.5 * ((beta2h - 0) ** 2 / (sig) ** 2)  # no mass dependence?
         ln_prior += -0.5 * ((dndz_index - 0.97) ** 2 / (0.87) ** 2)  # kim+
         ln_prior += -0.5 * (
             (np.log(dndz_coeff) - np.log(10) * 1.25) ** 2 / (np.log(10) * 0.11) ** 2
@@ -141,9 +150,6 @@ class Model:
     def log_likelihood(self):
 
         prob_hit = self.phit_sum()
-
-        # artifically inflating the variance.
-        prob_hit = np.clip(prob_hit, 0.01, 0.99)
         prob_miss = 1 - prob_hit
         log_prob_hits = np.log(prob_hit[self.hits])
         log_prob_miss = np.log(prob_miss[self.misses])
@@ -277,6 +283,10 @@ class Model2h(Model):
         self.dndz_index = dndz_index
         self.dndz_coeff = dndz_coeff
 
+    def r0func_2h(self):
+        r0_mass = self.r0_2
+        return r0_mass
+
     def log_likelihood(self):
 
         prob_hit = self.phit_2halo()
@@ -327,7 +337,7 @@ class Model2h(Model):
             (np.log(dndz_coeff) - np.log(10) * 1.25) ** 2 / (np.log(10) * 0.11) ** 2
         ) - np.log(
             dndz_coeff
-        )  # kim+
+        )  # kim+ # log-normal has a 1/x
 
         return ln_prior
 
