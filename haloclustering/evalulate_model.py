@@ -19,3 +19,12 @@ def posterior_sampler(soln, log_probability, nsteps=10000):
     sampler.run_mcmc(pos, nsteps, progress=True)
     return sampler
 
+
+def posterior_sampler_uniform_start(bounds, log_probability, nsteps=10000):
+    ndim = len(bounds[0])
+    nwalkers = 2 * ndim
+    pos = np.random.uniform(bounds[0], bounds[1], size=(nwalkers, ndim))
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability)
+
+    sampler.run_mcmc(pos, nsteps, progress=True)
+    return sampler
