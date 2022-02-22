@@ -3,6 +3,9 @@ import glob
 import cgmsquared.clustering2 as c2
 from astropy.table import Table, vstack
 from cgmsquared import load_cgmsquared
+import numpy as np
+from astropy.cosmology import Planck15 as cosmo
+import casbah.gal_properties as caprop
 
 
 def get_combined_dataset(cgmsqfile=None, casbahfile=None, **kwargs):
@@ -51,3 +54,28 @@ def get_combined_dataset(cgmsqfile=None, casbahfile=None, **kwargs):
     data = c2.combine_cgm2_casbah_cluster_data(cgm, cgm_data_cas, **kwargs)
     return data
 
+
+def make_grid_data(mass, redshift):
+    """z_lin, r_lin, m_lin, hits, misses, Hz_lin, dv, rvir, do_anly
+
+    Args:
+        mass (float): generate data at single mass
+        redshift (float): generate data at sinlge z
+
+    Returns:
+        tuple: z_lin, r_lin, m_lin, hits, misses, Hz_lin, dv, rvir, do_anly
+    """
+    npts = 1000
+    r_lin = np.geomspace(1e-10, 20, npts)
+    m_lin = np.full(npts, 10 ** mass)
+    z_lin = np.full(npts, redshift)
+    Hz_lin = cosmo.H(z_lin).value
+    dv = 500.0
+    hits = np.ones_like(r_lin)
+    misses = np.ones_like(r_lin)
+    logmhalo = caprop.calchalomass(mass, redshift)
+    rvir = caprop.calcrvir(logmhalo, redshift)
+    do_anly = np.ones_like(r_lin)
+
+    data = z_lin, r_lin, m_lin, hits, misses, Hz_lin, dv, rvir, do_anly
+    return data
