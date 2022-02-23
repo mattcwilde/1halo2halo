@@ -4,7 +4,7 @@ from cgmsquared import clustering as cgm2_cluster
 
 
 class Model:
-    def __init__(self, data, m0=10 ** 10.5) -> None:
+    def __init__(self, data, m0=10 ** 9.5) -> None:
 
         self.data = data
         self.m0 = m0
@@ -18,6 +18,7 @@ class Model:
             self.Hz,
             self.dv,
             self.rvir,
+            self.cgm_data_doanly,
             self.do_anly,
         ) = self.data
         # check if an astropy table or just an array
@@ -115,7 +116,7 @@ class Model:
         # flat prior on r0, gaussian prior on gamma around 1.6
         if (r0 < 0) or (r0 > 10) or (r0_2 < 0) or (r0_2 > 10):
             return -np.inf
-        if (gamma < 1) or (gamma > 10) or (gamma_2 < 1) or (gamma_2 > 10):
+        if (gamma < 1.9) or (gamma > 10) or (gamma_2 < 1) or (gamma_2 > 10):
             return -np.inf
         if (beta < -3) or (beta > 10) or (beta2h < -3) or (beta2h > 10):
             return -np.inf
@@ -287,9 +288,14 @@ class Model2h(Model):
         r0_mass = self.r0_2
         return r0_mass
 
+    def phit_sum(self):
+        chi_perp2 = self.chi_perp(self.r0_2, self.gamma_2)
+        prob_hit = self._calc_prob(chi_perp2)
+        return prob_hit
+
     def log_likelihood(self):
 
-        prob_hit = self.phit_2halo()
+        prob_hit = self.phit_sum()
 
         # artifically inflating the variance.
         prob_hit = np.clip(prob_hit, 0.01, 0.99)

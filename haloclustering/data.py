@@ -6,6 +6,8 @@ from cgmsquared import load_cgmsquared
 import numpy as np
 from astropy.cosmology import Planck15 as cosmo
 import casbah.gal_properties as caprop
+import pickle
+import os
 
 
 def get_combined_dataset(cgmsqfile=None, casbahfile=None, **kwargs):
@@ -17,13 +19,14 @@ def get_combined_dataset(cgmsqfile=None, casbahfile=None, **kwargs):
         misses,
         Hz,
         dv,
+        rvir,
         cgm_data_doanly,
         do_anly,
     )
 
     Args:
-        cgmsqfile ([type], optional): [description]. Defaults to None.
-        casbahfile ([type], optional): [description]. Defaults to None.
+        cgmsqfile (str or path object, optional): path to cgmsq data json. Defaults to None.
+        casbahfile (str or path object: path to casbah folder with fits tables in it. Defaults to None.
     """
 
     # cgmsquared
@@ -79,3 +82,15 @@ def make_grid_data(mass, redshift):
 
     data = z_lin, r_lin, m_lin, hits, misses, Hz_lin, dv, rvir, do_anly
     return data
+
+
+def get_sampler_pickle_file(pkl_file):
+    if os.path.exists(pkl_file):
+
+        infile = open(pkl_file, "rb")
+        sampler = pickle.load(infile)
+        infile.close()
+    else:
+        print(""""You need to find the output of the emcee model or rerun it""")
+
+    return sampler
