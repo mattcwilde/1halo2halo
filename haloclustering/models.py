@@ -277,12 +277,17 @@ class Model2h(Model):
             params (array): array of parameter values
         """
         r0_2, gamma_2, dndz_index, dndz_coeff = params
-        # 1 halo and 2 halo parameters theta
-        # r0_1halo is going to be the rvir
-        self.r0_2 = r0_2
-        self.gamma_2 = gamma_2
-        self.dndz_index = dndz_index
-        self.dndz_coeff = dndz_coeff
+
+        try:
+            self.r0_2 = r0_2[:, None]
+            self.gamma_2 = gamma_2[:, None]
+            self.dndz_index = dndz_index[:, None]
+            self.dndz_coeff = dndz_coeff[:, None]
+        except IndexError:
+            self.r0_2 = r0_2
+            self.gamma_2 = gamma_2
+            self.dndz_index = dndz_index
+            self.dndz_coeff = dndz_coeff
 
     def r0func_2h(self):
         r0_mass = self.r0_2
