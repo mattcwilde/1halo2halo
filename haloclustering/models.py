@@ -34,15 +34,26 @@ class Model:
             params (array): array of parameter values
         """
         r0, gamma, r0_2, gamma_2, beta, beta2h, dndz_index, dndz_coeff = params
-        self.r0 = r0
-        self.gamma = gamma
-        self.r0_2 = r0_2
-        self.gamma_2 = gamma_2
-        self.beta = beta
-        self.beta2h = beta2h
-        self.dndz_index = dndz_index
-        self.dndz_coeff = dndz_coeff
-        self.params = params
+        try:
+            self.r0 = r0[:, None]
+            self.gamma = gamma[:, None]
+            self.r0_2 = r0_2[:, None]
+            self.gamma_2 = gamma_2[:, None]
+            self.beta = beta[:, None]
+            self.beta2h = beta2h[:, None]
+            self.dndz_index = dndz_index[:, None]
+            self.dndz_coeff = dndz_coeff[:, None]
+            self.params = params[:, None]
+        except IndexError:
+            self.r0 = r0
+            self.gamma = gamma
+            self.r0_2 = r0_2
+            self.gamma_2 = gamma_2
+            self.beta = beta
+            self.beta2h = beta2h
+            self.dndz_index = dndz_index
+            self.dndz_coeff = dndz_coeff
+            self.params = params
 
     def chi_perp(self, r0, gamma):
         """compute the integral of the clustering function along the line of site. 
@@ -199,12 +210,20 @@ class rvirModel(Model):
         r0_coeff, gamma, r0_2, gamma_2, dndz_index, dndz_coeff = params
         # 1 halo and 2 halo parameters theta
         # r0_1halo is going to be the rvir
-        self.r0_coeff = r0_coeff
-        self.gamma = gamma
-        self.r0_2 = r0_2
-        self.gamma_2 = gamma_2
-        self.dndz_index = dndz_index
-        self.dndz_coeff = dndz_coeff
+        try:
+            self.r0_coeff = r0_coeff[:, None]
+            self.gamma = gamma[:, None]
+            self.r0_2 = r0_2[:, None]
+            self.gamma_2 = gamma_2[:, None]
+            self.dndz_index = dndz_index[:, None]
+            self.dndz_coeff = dndz_coeff[:, None]
+        except IndexError:
+            self.r0_coeff = r0_coeff
+            self.gamma = gamma
+            self.r0_2 = r0_2
+            self.gamma_2 = gamma_2
+            self.dndz_index = dndz_index
+            self.dndz_coeff = dndz_coeff
 
     def r0func(self):
         return self.r0_rvir * self.r0_coeff
@@ -370,15 +389,26 @@ class ModelBetaMass(Model):
 
         # 1 halo and 2 halo parameters theta
         # r0_1halo is going to be the rvir
-        self.r0 = r0
-        self.gamma = gamma
-        self.r0_2 = r0_2
-        self.gamma_2 = gamma_2
-        self.dndz_index = dndz_index
-        self.dndz_coeff = dndz_coeff
-        self.beta1h = np.array([beta1, beta2])
-        self.beta2h = beta2h
-        self.params = params
+        try:
+            self.r0 = r0[:, None]
+            self.gamma = gamma[:, None]
+            self.r0_2 = r0_2[:, None]
+            self.gamma_2 = gamma_2[:, None]
+            self.dndz_index = dndz_index[:, None]
+            self.dndz_coeff = dndz_coeff[:, None]
+            self.beta1h = np.array([beta1[:, None], beta2[:, None]])
+            self.beta2h = beta2h[:, None]
+            self.params = params[:, None]
+        except IndexError:
+            self.r0 = r0
+            self.gamma = gamma
+            self.r0_2 = r0_2
+            self.gamma_2 = gamma_2
+            self.dndz_index = dndz_index
+            self.dndz_coeff = dndz_coeff
+            self.beta1h = np.array([beta1, beta2])
+            self.beta2h = beta2h
+            self.params = params
 
     def r0func(self):
         print("this isn't defined in this model")
