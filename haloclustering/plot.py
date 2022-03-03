@@ -61,18 +61,16 @@ class CovFracPlot:
         """
         # model data covering fraction
         discard = 1000
-        params = self.sampler.get_chain(discard=discard, thin=1, flat=True)
+        params = self.sampler.get_chain(discard=discard, thin=10, flat=True)
 
         # instantiate model, feeding in data set
         self.model.set_params(params.T)
         fc = self.model.phit_sum()
         if bins is None:
             bins = self.bins
-        else:
-            bins = np.arange(0, 7, 0.1)
         r_com = self.model.rho_com
 
-        fc_mod_bin, _, _ = binned_statistic(r_com, fc, statistic="median", bins=bins)
+        fc_mod_bin, _, _ = binned_statistic(r_com, fc, statistic="mean", bins=bins)
         fc_mod_bin, fc_mod_bin_low, fc_mod_bin_high = np.quantile(
             fc_mod_bin, [0.5, 0.16, 0.84], axis=0
         )
@@ -98,7 +96,7 @@ class CovFracPlot:
         fc_mod_bin, fc_mod_bin_low, fc_mod_bin_high = self._compute_model_fc_bins(bins)
 
         plt.figure(figsize=(10, 7))
-        bincenters = (bins[:1] + bins[1:]) / 2
+        bincenters = (bins[:-1] + bins[1:]) / 2
         plt.errorbar(
             bincenters,
             cf,
@@ -123,7 +121,7 @@ class CovFracPlot:
             label=self.label,
         )
 
-        plt.xlim(0, 1.5)
+        plt.xlim(bins.min(), bins.max())
         plt.legend()
         plt.ylabel(r"$f_c$")
         plt.tight_layout()
@@ -131,4 +129,3 @@ class CovFracPlot:
         plt.title(self.title)
         plt.savefig(self.savefile)
         plt.show()
-

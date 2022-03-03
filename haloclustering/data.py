@@ -37,6 +37,7 @@ def get_combined_dataset(cgmsqfile=None, casbahfile=None, **kwargs):
     ion = "HI"
     cgm = load_cgmsquared.load_cgm_survey(build_sys=False, survey_file=surveyfile)
     cgm.add_ion_to_data(ion)
+    cgm._data["rho_impact"] = cgm._data["rho"]
 
     # casbah
     if casbahfile is None:
@@ -46,7 +47,9 @@ def get_combined_dataset(cgmsqfile=None, casbahfile=None, **kwargs):
     for cas_tab_file in survey_files:
         tab = Table.read(cas_tab_file)
         # add in useful naming conventions
+        # rho_impact in physical kpc
         tab["rho_rvir"] = tab["rho_impact"] / tab["rvir"]
+        tab["rho"] = tab["rho_impact"]  # for hits_and_misses()
         tab["z"] = tab["z_1"]
         tab["sig_logN_HI"] = tab["sig_logN"]
         cas_tab_list.append(tab)
