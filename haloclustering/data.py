@@ -81,9 +81,10 @@ def make_grid_data(mass, redshift):
     misses = np.ones_like(r_lin)
     logmhalo = caprop.calchalomass(mass, redshift)
     rvir = caprop.calcrvir(logmhalo, redshift)
+    dataobj = 1.0
     do_anly = np.ones_like(r_lin)
 
-    data = z_lin, r_lin, m_lin, hits, misses, Hz_lin, dv, rvir, do_anly
+    data = z_lin, r_lin, m_lin, hits, misses, Hz_lin, dv, rvir, dataobj, do_anly
     return data
 
 
