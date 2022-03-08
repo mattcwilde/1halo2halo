@@ -302,11 +302,13 @@ class Model2h(Model):
             self.gamma_2 = gamma_2[:, None]
             self.dndz_index = dndz_index[:, None]
             self.dndz_coeff = dndz_coeff[:, None]
+            self.params = params[:, None]
         except IndexError:
             self.r0_2 = r0_2
             self.gamma_2 = gamma_2
             self.dndz_index = dndz_index
             self.dndz_coeff = dndz_coeff
+            self.params = params
 
     def r0func_2h(self):
         r0_mass = self.r0_2
@@ -490,5 +492,82 @@ class ModelBetaMass(Model):
         ) - np.log(
             dndz_coeff
         )  # kim+
+
+        return ln_prior
+
+
+class Model1hBeta(Model):
+    def set_params(self, params):
+        """set the params specific to each model.
+
+        Args:
+            params (array): array of parameter values
+        """
+        r0, gamma, beta, dndz_index, dndz_coeff = params
+
+        try:
+            self.r0 = r0[:, None]
+            self.gamma = gamma[:, None]
+            self.beta = beta[:, None]
+            self.dndz_index = dndz_index[:, None]
+            self.dndz_coeff = dndz_coeff[:, None]
+            self.params = params[:, None]
+        except IndexError:
+            self.r0 = r0
+            self.gamma = gamma
+            self.beta = beta
+            self.dndz_index = dndz_index
+            self.dndz_coeff = dndz_coeff
+            self.params = params
+
+    def r0func_1h(self):
+        r0_mass = self.r0 * (self.mass / self.m0) ** self.beta
+        return r0_mass
+
+    def phit_sum(self):
+        chi_perp1 = self.chi_perp(self.r0func_1h(), self.gamma)
+        prob_hit = self._calc_prob(chi_perp1)
+        # artifically inflating the variance.
+        prob_hit = np.clip(prob_hit, 0.01, 0.99)
+        return prob_hit
+
+    def log_prior(self):
+        """the Bayesian prior. Will change with each model based on which params are 
+        important to the model. 
+
+        Returns:
+            ln_prior (float): natural log of the prior
+        """
+        r0 = self.r0
+        gamma = self.gamma
+        beta = self.beta
+        dndz_index = self.dndz_index
+        dndz_coeff = self.dndz_coeff
+
+        # flat prior on r0, gaussian prior on gamma around 1.6
+
+        if (r0 < 0) or (r0 > 10):
+            return -np.inf
+        if (gamma < 0) or (gamma > 10):
+            return -np.inf
+        if (
+            (dndz_index < -3)
+            or (dndz_index > 3)
+            or (dndz_coeff < 0)
+            or (dndz_coeff > 40)
+        ):
+            return -np.inf
+        if (beta < -3) or (beta > 10):
+            return -np.inf
+
+        ln_prior = -0.5 * ((gamma - 1.7) ** 2 / (0.1) ** 2)  # tejos 2014
+        ln_prior += -0.5 * ((r0 - 3.8) ** 2 / (0.3) ** 2)  # tejos 2014
+        # ln_prior += -0.5*((beta - 0.5)**2/(sig)**2)
+        ln_prior += -0.5 * ((dndz_index - 0.97) ** 2 / (0.87) ** 2)  # kim+
+        ln_prior += -0.5 * (
+            (np.log(dndz_coeff) - np.log(10) * 1.25) ** 2 / (np.log(10) * 0.11) ** 2
+        ) - np.log(
+            dndz_coeff
+        )  # kim+ # log-normal has a 1/x
 
         return ln_prior
