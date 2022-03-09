@@ -496,7 +496,7 @@ class ModelBetaMass(Model):
         return ln_prior
 
 
-class Model1hBeta(Model):
+class Model2hBeta(Model):
     def set_params(self, params):
         """set the params specific to each model.
 
