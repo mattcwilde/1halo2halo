@@ -98,3 +98,17 @@ def get_sampler_pickle_file(pkl_file):
         print(""""You need to find the output of the emcee model or rerun it""")
 
     return sampler
+
+
+def get_fc_pickle_file(pkl_file):
+    if os.path.exists(pkl_file):
+
+        infile = open(pkl_file, "rb")
+        sampler = pickle.load(infile)
+        infile.close()
+    else:
+        print(
+            """"You need to find the output of the coverfing fraction for each model or rerun it"""
+        )
+
+    return sampler
