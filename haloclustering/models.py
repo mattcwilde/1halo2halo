@@ -98,7 +98,7 @@ class Model:
 
     def phit_1halo(self):
         chi_perp1 = self.chi_perp(self.r0func_1h(), self.gamma)
-        prob_hit = self._calc_prob(chi_perp1)
+        prob_hit = self._calc_prob(chi_perp1 - 1)  # removing radnom term from 1-halo
         # artifically inflating the variance.
         # based on numerics
         prob_hit = np.clip(prob_hit, 0.01, 0.99)

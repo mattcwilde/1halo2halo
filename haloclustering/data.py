@@ -69,7 +69,7 @@ def make_grid_data(mass, redshift):
         redshift (float): generate data at sinlge z
 
     Returns:
-        tuple: z_lin, r_lin, m_lin, hits, misses, Hz_lin, dv, rvir, do_anly
+        tuple: z_lin, r_lin, m_lin, hits, misses, Hz_lin, dv, rvir, dataobj, do_anly
     """
     npts = 1000
     r_lin = np.geomspace(1e-10, 20, npts)
