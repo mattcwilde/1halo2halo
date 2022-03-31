@@ -1,6 +1,7 @@
 import cgmsquared.clustering2 as c2
 import numpy as np
 from cgmsquared import clustering as cgm2_cluster
+from scipy.special import erf
 
 
 class Model:
@@ -230,7 +231,7 @@ class rvirModel(Model):
 
     def phit_1halo(self):
         chi_perp1 = self.chi_perp(self.r0func(), self.gamma)
-        prob_hit = self._calc_prob(chi_perp1)
+        prob_hit = self._calc_prob(chi_perp1 - 1)
         return prob_hit
 
     def phit_2halo(self):
@@ -426,7 +427,7 @@ class ModelBetaMass(Model):
 
     def phit_1halo(self):
         chi_perp1 = self.chi_perp(self.r0func_1h(), self.gamma)
-        prob_hit = self._calc_prob(chi_perp1)
+        prob_hit = self._calc_prob(chi_perp1 - 1)
         return prob_hit
 
     def phit_2halo(self):
@@ -571,3 +572,103 @@ class Model2hBeta(Model):
         )  # kim+ # log-normal has a 1/x
 
         return ln_prior
+
+
+class expModelRvir(rvirModel):
+    def __init__(self, data) -> None:
+        super().__init__(data)
+
+    def set_params(self, params):
+        """set the params specific to each model.
+
+        Args:
+            params (array): array of parameter values
+        """
+        r0_coeff, r0_2, gamma_2, dndz_index, dndz_coeff = params
+        # 1 halo and 2 halo parameters theta
+        # r0_1halo is going to be the rvir
+        try:
+            self.r0_coeff = r0_coeff[:, None]
+            self.r0_2 = r0_2[:, None]
+            self.gamma_2 = gamma_2[:, None]
+            self.dndz_index = dndz_index[:, None]
+            self.dndz_coeff = dndz_coeff[:, None]
+        except IndexError:
+            self.r0_coeff = r0_coeff
+            self.r0_2 = r0_2
+            self.gamma_2 = gamma_2
+            self.dndz_index = dndz_index
+            self.dndz_coeff = dndz_coeff
+
+    def chi_perp_exp(self):
+        a = 1 / (1 + self.z)
+        norm_const = a * self.Hz / (2 * self.dv)  # 1/Mpc
+        lim = self.dv / (a * self.Hz)  # Mpc
+
+        norm_const = self.r0func * np.sqrt(np.pi) * erf(lim / self.r0func)
+
+        antideriv = norm_const * np.exp(-((self.rho_com / self.r0func) ** 2))
+        return norm_const * antideriv
+
+    def _calc_prob(self, chi_perp):
+        rate_of_incidence = (1 + chi_perp) * self.mean_dNdz()
+        prob_miss = np.exp(-rate_of_incidence)
+        prob_hit = 1 - prob_miss
+        return prob_hit
+
+    def phit_1halo(self):
+        chi_perp1 = self.chi_perp_exp()
+        prob_hit = self._calc_prob(chi_perp1 - 1)  # removing radnom term from 1-halo
+        # artifically inflating the variance.
+        # based on numerics
+        prob_hit = np.clip(prob_hit, 0.01, 0.99)
+        return prob_hit
+
+    def phit_2halo(self):
+        chi_perp2 = self.chi_perp(self.r0func_2h(), self.gamma_2)
+        prob_hit = self._calc_prob(chi_perp2)
+        # artifically inflating the variance.
+        # based on numerics
+        prob_hit = np.clip(prob_hit, 0.01, 0.99)
+        return prob_hit
+
+    def log_prior(self):
+        """the Bayesian prior. Will change with each model based on which params are 
+        important to the model. 
+
+        Returns:
+            ln_prior (float): natural log of the prior
+        """
+        r0_coeff = self.r0_coeff
+        r0_2 = self.r0_2
+        gamma_2 = self.gamma_2
+        dndz_index = self.dndz_index
+        dndz_coeff = self.dndz_coeff
+
+        # flat prior on r0, gaussian prior on gamma around 1.6
+        if (r0_coeff < 0) or (r0_coeff > 10):
+            return -np.inf
+        if (r0_2 < 0) or (r0_2 > 10):
+            return -np.inf
+        if (
+            (dndz_index < -3)
+            or (dndz_index > 3)
+            or (dndz_coeff < 0)
+            or (dndz_coeff > 40)
+        ):
+            return -np.inf
+
+        sig = 1.0
+        # ln_prior = -0.5 * ((gamma - 6) ** 2 / (sig) ** 2)
+        ln_prior = -0.5 * ((gamma_2 - 1.7) ** 2 / (0.1) ** 2)  # tejos 2014
+        ln_prior += -0.5 * ((r0_2 - 3.8) ** 2 / (0.3) ** 2)  # tejos 2014
+        # ln_prior += -0.5*((beta - 0.5)**2/(sig)**2)
+        ln_prior += -0.5 * ((dndz_index - 0.97) ** 2 / (0.87) ** 2)  # kim+
+        ln_prior += -0.5 * (
+            (np.log(dndz_coeff) - np.log(10) * 1.25) ** 2 / (np.log(10) * 0.11) ** 2
+        ) - np.log(
+            dndz_coeff
+        )  # kim+
+
+        return ln_prior
+
