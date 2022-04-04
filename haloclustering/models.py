@@ -191,11 +191,7 @@ class Model:
 
 class rvirModel(Model):
     """This model of the covering fraction/probability of hitting logNHI > 10**14 is based on
-    using r0 ~ Rvir. 
-
-    This one takes in data that should be an array of values/arrays and optionally an m0. 
-
-    Add more here eventually. 
+    using r0 ~ Rvir. The 2-halo term is the same as in the fiducial model. 
 
     """
 
@@ -208,7 +204,7 @@ class rvirModel(Model):
         Args:
             params (array): array of parameter values
         """
-        r0_coeff, gamma, r0_2, gamma_2, dndz_index, dndz_coeff = params
+        r0_coeff, gamma, r0_2, gamma_2, beta_2, dndz_index, dndz_coeff = params
         # 1 halo and 2 halo parameters theta
         # r0_1halo is going to be the rvir
         try:
@@ -216,6 +212,7 @@ class rvirModel(Model):
             self.gamma = gamma[:, None]
             self.r0_2 = r0_2[:, None]
             self.gamma_2 = gamma_2[:, None]
+            self.beta_2 = beta_2[:, None]
             self.dndz_index = dndz_index[:, None]
             self.dndz_coeff = dndz_coeff[:, None]
         except IndexError:
@@ -223,11 +220,15 @@ class rvirModel(Model):
             self.gamma = gamma
             self.r0_2 = r0_2
             self.gamma_2 = gamma_2
+            self.beta_2 = beta_2
             self.dndz_index = dndz_index
             self.dndz_coeff = dndz_coeff
 
     def r0func(self):
         return self.r0_rvir * self.r0_coeff
+
+    def r0func_2h(self):
+        return super().r0func_2h()
 
     def phit_1halo(self):
         chi_perp1 = self.chi_perp(self.r0func(), self.gamma)
@@ -235,13 +236,13 @@ class rvirModel(Model):
         return prob_hit
 
     def phit_2halo(self):
-        chi_perp2 = self.chi_perp(self.r0_2, self.gamma_2)
+        chi_perp2 = self.chi_perp(self.r0func_2h(), self.gamma_2)
         prob_hit = self._calc_prob(chi_perp2)
         return prob_hit
 
     def phit_sum(self):
         chi_perp1 = self.chi_perp(self.r0func(), self.gamma)
-        chi_perp2 = self.chi_perp(self.r0_2, self.gamma_2)
+        chi_perp2 = self.chi_perp(self.r0func_2h, self.gamma_2)
         prob_hit = self._calc_prob(chi_perp1 + chi_perp2)
         return prob_hit
 
@@ -256,6 +257,7 @@ class rvirModel(Model):
         r0_2 = self.r0_2
         gamma = self.gamma
         gamma_2 = self.gamma_2
+        beta2h = self.beta_2
         dndz_index = self.dndz_index
         dndz_coeff = self.dndz_coeff
 
@@ -265,6 +267,8 @@ class rvirModel(Model):
         if (r0_2 < 0) or (r0_2 > 10):
             return -np.inf
         if (gamma < 0) or (gamma > 10) or (gamma_2 < 0) or (gamma_2 > 10):
+            return -np.inf
+        if (beta2h < -3) or (beta2h > 10):
             return -np.inf
         if (
             (dndz_index < -3)
@@ -604,10 +608,9 @@ class expModelRvir(rvirModel):
         a = 1 / (1 + self.z)
         norm_const = a * self.Hz / (2 * self.dv)  # 1/Mpc
         lim = self.dv / (a * self.Hz)  # Mpc
+        norm_const = self.r0func() * np.sqrt(np.pi) * erf(lim / self.r0func())
 
-        norm_const = self.r0func * np.sqrt(np.pi) * erf(lim / self.r0func)
-
-        antideriv = norm_const * np.exp(-((self.rho_com / self.r0func) ** 2))
+        antideriv = norm_const * np.exp(-((self.rho_com / self.r0func()) ** 2))
         return norm_const * antideriv
 
     def _calc_prob(self, chi_perp):
@@ -618,11 +621,15 @@ class expModelRvir(rvirModel):
 
     def phit_1halo(self):
         chi_perp1 = self.chi_perp_exp()
-        prob_hit = self._calc_prob(chi_perp1 - 1)  # removing radnom term from 1-halo
+        prob_hit = self._calc_prob(chi_perp1 - 1)  # removing random term from 1-halo
         # artifically inflating the variance.
         # based on numerics
         prob_hit = np.clip(prob_hit, 0.01, 0.99)
         return prob_hit
+
+    def r0func_2h(self):
+        r0_mass = self.r0_2 * (self.mass / self.m0) ** (self.beta2h)
+        return r0_mass
 
     def phit_2halo(self):
         chi_perp2 = self.chi_perp(self.r0func_2h(), self.gamma_2)
