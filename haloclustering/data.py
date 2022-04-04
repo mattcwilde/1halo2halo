@@ -1,13 +1,16 @@
 import glob
-
-import cgmsquared.clustering2 as c2
-from astropy.table import Table, vstack
-from cgmsquared import load_cgmsquared
-import numpy as np
-from astropy.cosmology import Planck15 as cosmo
-import casbah.gal_properties as caprop
-import pickle
 import os
+import pickle
+
+import astropy.units as u
+import casbah.gal_properties as caprop
+import cgmsquared.clustering2 as c2
+import numpy as np
+import pandas as pd
+from astropy.coordinates import SkyCoord
+from astropy.cosmology import Planck15 as cosmo
+from astropy.table import Table, hstack, vstack
+from cgmsquared import load_cgmsquared
 
 
 def get_combined_dataset(cgmsqfile=None, casbahfile=None, **kwargs):
@@ -112,3 +115,48 @@ def get_fc_pickle_file(pkl_file):
         )
 
     return sampler
+
+
+def xmatch(
+    table1,
+    table2,
+    ra1_key,
+    dec1_key,
+    ra2_key,
+    dec2_key,
+    units="deg",
+    max_sep=1.0 * u.arcsec,
+):
+    # convert to astropy
+    if not isinstance(table1, Table):
+        if isinstance(table1, pd.DataFrame):
+            table1 = Table.from_pandas(table1)
+        else:
+            print("table1 must be pandas or astropy table")
+
+    if not isinstance(table2, Table):
+        if isinstance(table2, pd.DataFrame):
+            table2 = Table.from_pandas(table2)
+        else:
+            print("table2 must be pandas or astropy table")
+
+    ra1 = np.array(table1[ra1_key])
+    dec1 = np.array(table1[dec1_key])
+    ra2 = np.array(table2[ra2_key])
+    dec2 = np.array(table2[dec2_key])
+
+    c1 = SkyCoord(ra=ra1, dec=dec1, unit=units)
+    c2 = SkyCoord(ra=ra2, dec=dec2, unit=units)
+
+    # find the closest match
+    idx, d2d, _ = c1.match_to_catalog_sky(c2, nthneighbor=1)
+
+    sep_constraint = d2d < max_sep
+    t1_matches = table1[sep_constraint]
+    t2_matches = table2[idx[sep_constraint]]
+
+    comb_tab = hstack([t1_matches, t2_matches])
+
+    # add ang_sep
+    comb_tab["ang_sep"] = d2d[sep_constraint].arcsec
+    return comb_tab
