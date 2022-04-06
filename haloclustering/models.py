@@ -212,7 +212,7 @@ class rvirModel(Model):
             self.gamma = gamma[:, None]
             self.r0_2 = r0_2[:, None]
             self.gamma_2 = gamma_2[:, None]
-            self.beta_2 = beta_2[:, None]
+            self.beta2h = beta_2[:, None]
             self.dndz_index = dndz_index[:, None]
             self.dndz_coeff = dndz_coeff[:, None]
         except IndexError:
@@ -220,7 +220,7 @@ class rvirModel(Model):
             self.gamma = gamma
             self.r0_2 = r0_2
             self.gamma_2 = gamma_2
-            self.beta_2 = beta_2
+            self.beta2h = beta_2
             self.dndz_index = dndz_index
             self.dndz_coeff = dndz_coeff
 
@@ -242,7 +242,7 @@ class rvirModel(Model):
 
     def phit_sum(self):
         chi_perp1 = self.chi_perp(self.r0func(), self.gamma)
-        chi_perp2 = self.chi_perp(self.r0func_2h, self.gamma_2)
+        chi_perp2 = self.chi_perp(self.r0func_2h(), self.gamma_2)
         prob_hit = self._calc_prob(chi_perp1 + chi_perp2)
         return prob_hit
 
