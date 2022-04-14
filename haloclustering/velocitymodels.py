@@ -130,18 +130,33 @@ class velocityModelSingle(object):
 
 
 class velocityModel1h2h(object):
-    def __init__(self, df, dvlist, m0=10 ** 9.5) -> None:
-        # galaxy data
-        self.rho_com = df.rho.values / 1000
-        self.z = df.z.values
-        self.Hz = cosmo.H(self.z).value
-        outcomes = df.filter(like="HM_").drop(columns="HM_0_500")
-        self.hits = outcomes.values == "hit"
-        self.misses = outcomes.values == "miss"
-        self.rvir = df.rvir.values / 1000  # convert to Mpc
-        self.dvlist = dvlist
-        self.mass = df.mstars.values
-        self.m0 = m0
+    def __init__(self, df, dvlist, m0=10 ** 9.5, mockdata=False, z=None) -> None:
+        if mockdata:
+            self.m0 = m0
+            self.dvlist = dvlist
+            if z is not None:
+                self.z = z
+            else:
+                z = np.array([0.3])
+            self.rvir = 1.0
+            self.rho_com = df.rho.sort_values().values / 1000
+            self.Hz = cosmo.H(self.z).value
+            self.hits = np.ones(len(dvlist))
+            self.misses = np.zeros(len(dvlist))
+            self.rvir = 1.0
+            self.mass = self.m0
+        else:
+            # galaxy data
+            self.rho_com = df.rho.values / 1000
+            self.z = df.z.values
+            self.Hz = cosmo.H(self.z).value
+            outcomes = df.filter(like="HM_").drop(columns="HM_0_500")
+            self.hits = outcomes.values == "hit"
+            self.misses = outcomes.values == "miss"
+            self.rvir = df.rvir.values / 1000  # convert to Mpc
+            self.dvlist = dvlist
+            self.mass = df.mstars.values
+            self.m0 = m0
 
     def set_params(self, params) -> None:
         """set the params specific to each model.
@@ -215,10 +230,6 @@ class velocityModel1h2h(object):
         prob_hit = 1 - prob_miss
         prob_hit = np.clip(prob_hit, 0.00001, 0.99)
         return prob_hit
-
-    def r0func(self):
-        r = (self.mass / self.m0) ** self.beta
-        return r
 
     def log_prior(self):
         (r0, gamma, r0_2, gamma_2, beta, beta2h, dndz_index, dndz_coeff) = self.params

@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 # from haloclustering.data import get_combined_dataset
 from scipy.stats import binned_statistic
@@ -129,7 +130,7 @@ def plot_fc(ax, data, bins, masslabel, rerun_fc=False, mass_cut=None):
         color="black",  # fmt='.k',
         ecolor="lightgrey",
         label="data",
-        **kwargs
+        **kwargs,
     )
 
     ax.errorbar(
@@ -140,7 +141,7 @@ def plot_fc(ax, data, bins, masslabel, rerun_fc=False, mass_cut=None):
         color="tab:blue",
         ecolor="lightblue",
         label=r"2$^h$ only",
-        **kwargs
+        **kwargs,
     )
     ax.errorbar(
         bincenters,
@@ -150,7 +151,7 @@ def plot_fc(ax, data, bins, masslabel, rerun_fc=False, mass_cut=None):
         color="tab:green",
         ecolor="tab:green",
         label=r"2$^h$ w/ $\beta$",
-        **kwargs
+        **kwargs,
     )
 
     ax.errorbar(
@@ -161,7 +162,7 @@ def plot_fc(ax, data, bins, masslabel, rerun_fc=False, mass_cut=None):
         color="tab:purple",
         ecolor="tab:purple",
         label=r"1$^h$ + 2$^h$",
-        **kwargs
+        **kwargs,
     )
     ax.errorbar(
         bincenters,
@@ -171,7 +172,7 @@ def plot_fc(ax, data, bins, masslabel, rerun_fc=False, mass_cut=None):
         color="tab:pink",
         ecolor="tab:pink",
         label=r"$r_0 \sim R_{vir}$",
-        **kwargs
+        **kwargs,
     )
 
     ax.set_xlim(bins.min(), bins.max())
@@ -259,7 +260,7 @@ def plot_fc_diff(ax, data, bins, masslabel, rerun_fc=False, mass_cut=None):
         color="tab:blue",
         ecolor="lightblue",
         label=r"2$^h$ only model",
-        **kwargs
+        **kwargs,
     )
 
     ax.errorbar(
@@ -270,7 +271,7 @@ def plot_fc_diff(ax, data, bins, masslabel, rerun_fc=False, mass_cut=None):
         color="tab:purple",
         ecolor="tab:purple",
         label=r"1$^h$ + 2$^h$",
-        **kwargs
+        **kwargs,
     )
     ax.errorbar(
         bincenters,
@@ -280,7 +281,7 @@ def plot_fc_diff(ax, data, bins, masslabel, rerun_fc=False, mass_cut=None):
         color="tab:pink",
         ecolor="tab:pink",
         label=r"$r_0 \sim R_{vir}$",
-        **kwargs
+        **kwargs,
     )
     ax.errorbar(
         bincenters,
@@ -290,7 +291,7 @@ def plot_fc_diff(ax, data, bins, masslabel, rerun_fc=False, mass_cut=None):
         color="tab:green",
         ecolor="tab:green",
         label=r"1$^h$ w/beta",
-        **kwargs
+        **kwargs,
     )
     ax.set_xlim(bins.min(), bins.max())
     ax.set_ylim(-0.3, 0.3)
@@ -303,3 +304,51 @@ def plot_fc_diff(ax, data, bins, masslabel, rerun_fc=False, mass_cut=None):
     # ax.set_xlabel(r"$R_{\perp,c}$ [Mpc]")
 
     return ax
+
+
+def model_v_emp_plot(ax, df, bins, cf_list, masslabel=None):
+    """Plot the model vs empirical data
+
+    Args:
+        ax (ax): matplotlib axis
+        df (pandas.DataFrame): pandas df with the data
+        bins (array): radial bins
+        cf_list (_type_): list of covering fraction data
+        masslabel (_type_, optional): _description_. Defaults to None.
+
+    Returns:
+        _type_: _description_
+    """
+    rho_com = df.rho.values
+
+    colors = ["tab:blue", "tab:purple", "tab:pink"]
+    labels = ["0-100 km/s", "200-300 km/s", "400-500 km/s"]
+    cf_types = ["HM_0_100", "HM_200_300", "HM_400_500"]
+    for cf, cf_type, color, label in zip(cf_list.T, cf_types, colors, labels):
+
+        active_df = df.query(f'{cf_type} != "inconclusive"').copy()
+        active_df["response"] = active_df[cf_type] == "hit"
+
+        sns.regplot(
+            data=active_df,
+            x="rho",
+            y="response",
+            fit_reg=False,
+            x_bins=bins,
+            x_ci=68,
+            ci=68,
+            order=3,
+            ax=ax,
+            color=color,
+            label=label,
+        )
+
+        ax.plot(rho_com, cf, c=color, ls="--", label=None)
+
+    if masslabel is not None:
+        ax.text(0.3, 0.9, masslabel, transform=ax.transAxes)
+
+    ax.set_yscale("log")
+    ax.set_xscale("log")
+    return ax
+
