@@ -37,7 +37,7 @@ def compute_model_fc_bins(r_com, fc, bins):
     Returns:
         tuple : fc_mod_bin, fc_mod_bin_low, fc_mod_bin_high
     """
-    fc_mod_bin, _, _ = binned_statistic(r_com, fc, statistic="mean", bins=bins)
+    fc_mod_bin, _, _ = binned_statistic(r_com, fc, statistic=np.nanmean, bins=bins)
     fc_mod_bin, fc_mod_bin_low, fc_mod_bin_high = np.quantile(
         fc_mod_bin, [0.5, 0.16, 0.84], axis=0
     )
@@ -344,11 +344,76 @@ def model_v_emp_plot(ax, df, bins, cf_list, masslabel=None):
         )
 
         ax.plot(rho_com, cf, c=color, ls="--", label=None)
-
+        ax.set_ylabel(r"$f_c$")
     if masslabel is not None:
         ax.text(0.3, 0.9, masslabel, transform=ax.transAxes)
 
-    ax.set_yscale("log")
+    # ax.set_yscale("log")
     ax.set_xscale("log")
+
     return ax
 
+
+def new_plot_fc(ax, data, bins, masslabel, df, flat_phit_samps, mass_cut=None):
+
+    # deal with the single power law w/beta
+    model4 = models.Model2hBeta(data=data)
+    fc4 = datamodule.get_fc_pickle_file("../../data/model_2h_only_with_beta_fc.pkl")
+    r_com4 = model4.rho_com[mass_cut]
+
+    # bin up the covering fraction data in rho_impact
+    cf, lolim, uplim = compute_empirical_fc_bins(data, bins, mass_cut)
+    fc_mod_bin4, fc_mod_bin_low4, fc_mod_bin_high4 = compute_model_fc_bins(
+        r_com4, fc4[:, mass_cut], bins
+    )
+
+    # deal with the new model
+    rho = df.rho.values
+    fc_mod_bin, fc_mod_bin_low, fc_mod_bin_high = compute_model_fc_bins(
+        rho, flat_phit_samps, bins
+    )
+
+    bincenters = (bins[:-1] + bins[1:]) / 2
+
+    kwargs = {"elinewidth": 2, "capsize": 5, "lw": 2, "alpha": 1}
+    ax.errorbar(
+        bincenters,
+        cf,
+        yerr=[lolim, uplim],
+        marker=".",
+        color="black",  # fmt='.k',
+        ecolor="lightgrey",
+        label="data",
+        **kwargs,
+    )
+
+    ax.errorbar(
+        bincenters,
+        fc_mod_bin,
+        yerr=[fc_mod_bin - fc_mod_bin_low, fc_mod_bin_high - fc_mod_bin],
+        marker=".",
+        color="tab:blue",
+        ecolor="lightblue",
+        label=r"2$^h$ only",
+        **kwargs,
+    )
+    ax.errorbar(
+        bincenters,
+        fc_mod_bin4,
+        yerr=[fc_mod_bin4 - fc_mod_bin_low4, fc_mod_bin_high4 - fc_mod_bin4],
+        marker=".",
+        color="tab:green",
+        ecolor="tab:green",
+        label=r"2$^h$ w/ $\beta$",
+        **kwargs,
+    )
+
+    ax.set_xlim(bins.min(), bins.max())
+    ax.set_ylim(0, 1)
+    ax.text(0.3, 0.8, masslabel, transform=ax.transAxes)
+    ax.set_ylabel(r"$f_c$")
+    ax.set_xscale("log")
+    # plt.tight_layout()
+    # ax.set_xlabel(r"$R_{\perp,c}$ [Mpc]")
+
+    return ax
