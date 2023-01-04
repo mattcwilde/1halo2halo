@@ -253,3 +253,8 @@ def log_likelihood_2h(
 def bayes_inf_criterion(likelihood, num_params, num_data):
     bic = -2 * likelihood + num_params * np.log(num_data)
     return bic
+
+
+def akaike_inf_criterion(likelihood, num_params):
+    aic = -2 * likelihood + 2 * num_params
+    return aic
